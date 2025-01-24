@@ -1,0 +1,11 @@
+censusname
+matplotlib
+openai
+ortools
+pandas
+plotnine
+protobuf
+pydantic
+python-dotenv
+setuptools
+tqdm
