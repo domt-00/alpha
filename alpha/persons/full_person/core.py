@@ -15,7 +15,6 @@ from alpha.persons.standard_person import (
     StandardValuePipeline,
 )
 from alpha.scenario import Bundle, Scenario, scenario_bundle_sample
-from alpha.util import get_openai_client
 from alpha.xor import XORBid
 
 def process_bundle(scenario, seed, quantities_tuple):

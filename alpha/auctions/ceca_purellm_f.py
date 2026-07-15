@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pydantic import BaseModel, Field
 
-from alpha.util import get_openai_client, retry
+from alpha.util import get_llm_client, get_llm_model, get_llm_provider, parse_structured_output, retry
 from alpha.proxy import Proxy, ProxyFactory
 from alpha.xor import XORBid
 from alpha.auction import Auction, Allocation
@@ -129,6 +129,9 @@ class CECA_PureLLM_F_Proxy(Proxy):
                     "Here is the scenario description: \n"
                     + self.person.scenario.Description()
                     + "\n\n"
+                    "Here is the description of the person's preferences: \n"
+                    + str(self.person.seed)
+                    + "\n\n"
                     "Here is the current conversation history with the person: \n"
                     + (
                         "\n".join(
@@ -143,13 +146,9 @@ class CECA_PureLLM_F_Proxy(Proxy):
             }
         ]
         
-        client = get_openai_client("openai")
-        
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini", messages=messages, response_format=BundleValue
-        )
-        bundle_value = completion.choices[0].message.parsed
-        
+        client = get_llm_client()
+        bundle_value = parse_structured_output(client, get_llm_model(), messages, BundleValue)
+
         return bundle_value.value
     
     def refresh_inferred_valuations(self):
@@ -164,8 +163,9 @@ class CECA_PureLLM_F_Proxy(Proxy):
             if not any(bundle == bundle2 for bundle2, _ in self.manifest_valuation.atomic_bids)
         ]
         
-        # Define the number of worker threads; adjust as needed
-        max_workers = min(10, len(bundles_to_query)) if bundles_to_query else 1
+        # Ollama processes one request at a time; parallel calls just queue up and timeout.
+        from alpha.util import get_llm_provider
+        max_workers = 1 if get_llm_provider() == "ollama" else (min(10, len(bundles_to_query)) if bundles_to_query else 1)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all value_query tasks to the executor
             future_to_bundle = {executor.submit(self.value_query, bundle): bundle for bundle in bundles_to_query}
@@ -228,6 +228,9 @@ class CECA_PureLLM_F_Proxy(Proxy):
                             "Here is the scenario description: \n"
                             + self.person.scenario.Description()
                             + "\n\n"
+                            "Here is the description of the person's preferences: \n"
+                            + str(self.person.seed)
+                            + "\n\n"
                             + "Here are the currently tracked bundles:\n"
                             + "\n".join([x.to_code_description() for x , _ in self.manifest_valuation.atomic_bids]) +"\n\n"
                             +"Here are the current prices: \n"
@@ -250,25 +253,44 @@ class CECA_PureLLM_F_Proxy(Proxy):
                     }
                 ]
                 
-                client = get_openai_client("openai")
+                try:
+                    client = get_llm_client()
 
-                completion = client.chat.completions.create(
-                    model="gpt-4o-mini", messages=messages
-                )
-                
-                messages.append(completion.choices[0].message)
-                messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
-                
-                logger.info(messages)
-                
-                client = get_openai_client("openai")
+                    if get_llm_provider() != "ollama":
+                        @retry(max_delay=60)
+                        def _thinking_call():
+                            return client.chat.completions.create(
+                                model=get_llm_model(), messages=messages
+                            )
+                        completion = _thinking_call()
+                        messages.append(completion.choices[0].message)
+                        messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
+                    else:
+                        early = self.current_num_iterations <= self.MIN_ITERATIONS
+                        messages[0]["content"] += (
+                            "\n\nYou MUST respond with TARGET_BUNDLE or CHECK — do NOT choose HAPPY yet, you have not explored enough bundles. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                            if early else
+                            "\n\nNow choose: TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                        )
 
-                completion = client.beta.chat.completions.parse(
-                    model="gpt-4o-mini", messages=messages, response_format=(InformationAction if self.current_num_iterations <= self.MIN_ITERATIONS else Action)
-                )
-                action = completion.choices[0].message.parsed
-                
-                logger.info(action)
+                    logger.info(messages)
+
+                    action = parse_structured_output(
+                        client,
+                        get_llm_model(),
+                        messages,
+                        Action,
+                    )
+
+                    logger.info(action)
+
+                    if action.response.type == "HAPPY" and self.current_num_iterations <= self.MIN_ITERATIONS:
+                        action.response = CheckPriceDemand(type="CHECK")
+                except Exception as e:
+                    logger.info(f"LLM call failed on attempt {tries}: {e}")
+                    continue
 
                 if action.response.type == "CHECK":
                     demanded_bundle: Bundle = self.person.Message(
@@ -369,7 +391,8 @@ class CECA_PureLLM_F_Proxy_Factory(ProxyFactory):
                  target_bundle_emphasis: str,
                  anchor_num_target_bundles: str,
                  cap: int,
-                 min_iterations: int):
+                 min_iterations: int,
+                 discount: float = 0.75):
         self.check_priority = check_priority
         self.target_bundle_priority = target_bundle_priority
         self.happy_priority = happy_priority
@@ -377,6 +400,7 @@ class CECA_PureLLM_F_Proxy_Factory(ProxyFactory):
         self.anchor_num_target_bundles = anchor_num_target_bundles
         self.cap = cap
         self.min_iterations = min_iterations
+        self.discount = discount
 
 
     def __call__(self, person: Person) -> Proxy:
@@ -386,5 +410,6 @@ class CECA_PureLLM_F_Proxy_Factory(ProxyFactory):
                                     self.happy_priority,
                                     self.target_bundle_emphasis,
                                     self.anchor_num_target_bundles,
-                                    CAP_INTERACTIONS = self.cap,
+                                    discount=self.discount,
+                                    CAP_INTERACTIONS=self.cap,
                                     MIN_ITERATIONS = self.min_iterations)

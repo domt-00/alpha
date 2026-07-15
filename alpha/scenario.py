@@ -343,6 +343,166 @@ ElectronicsScenario = Scenario(
         1, 1, 1, 1, 1, 1
     ])
 
+ElectronicsScenarioSpecs = Scenario(
+    "ELECTRONICS-SPECS",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition. Item descriptions are based on official Apple Support technical specification pages.",
+    [
+        ItemType("AIRPODS2", "Apple AirPods (2nd Generation): True wireless in-ear earbuds. H1 chip; Bluetooth; Lightning Charging Case (24+ hrs total battery, 5 hrs per charge). Double-tap gesture control. No active noise cancellation. Works with any Bluetooth device; seamless pairing with Apple devices (iOS 14.3+). Year introduced: 2019."),
+        ItemType("AIRPODSPROMAX", "Apple AirPods Max: Premium over-ear wireless headphones. H1 chip per ear cup. Active Noise Cancellation (ANC), Transparency mode, Personalised Spatial Audio. Digital Crown volume/playback control. Up to 20 hrs battery (ANC on). USB-C charging. Works with any Bluetooth device. Year introduced: 2020."),
+        ItemType("IPAD9", "Apple iPad (9th Generation): 10.2-inch Retina display (264 ppi), A13 Bionic chip, 64GB. Lightning connector. Touch ID. 8MP rear / 12MP front camera. Wi-Fi. All-day battery. STYLUS COMPATIBILITY: Supports Apple Pencil (1st generation) ONLY. NOT compatible with Apple Pencil (2nd generation) or Apple Pencil Pro. Year introduced: 2021."),
+        ItemType("IPAD12", "Apple iPad Air 11-inch (M2): 10.86-inch Liquid Retina display (264 ppi), M2 chip, 128GB. USB-C connector. Touch ID (top button). 12MP front and rear cameras. Wi-Fi 6E. All-day battery. STYLUS COMPATIBILITY: Supports Apple Pencil Pro and Apple Pencil (USB-C) ONLY. NOT compatible with Apple Pencil (1st or 2nd generation). Year introduced: 2024."),
+        ItemType("APPLEPENCIL2", "Apple Pencil (2nd Generation): Pixel-perfect, low-latency stylus. Magnetically attaches, charges, and pairs. Double-tap to switch tools. COMPATIBLE IPADS: iPad Pro 12.9-inch (3rd–6th gen), iPad Pro 11-inch (1st–4th gen), iPad Air (4th gen), iPad Air (5th gen), iPad mini (6th gen). NOT compatible with iPad (9th generation) or iPad Air 11-inch (M2). Year introduced: 2018."),
+        ItemType("APPLEPENCILPRO", "Apple Pencil Pro: Advanced stylus with squeeze (tool palette), barrel roll, haptic feedback, Find My. Pixel-perfect precision, tilt/pressure sensitivity. Magnetically attaches, charges, pairs. COMPATIBLE IPADS: iPad Air 11-inch (M2/M3/M4), iPad Air 13-inch (M2/M3/M4), iPad Pro 11-inch (M4/M5), iPad Pro 13-inch (M4/M5), iPad mini (A17 Pro). NOT compatible with iPad (9th generation). Requires iPadOS 17.5+. Year introduced: 2024."),
+    ],
+    [
+        1, 1, 1, 1, 1, 1
+    ])
+
+ElectronicsScenarioReviews = Scenario(
+    "ELECTRONICS-REVIEWS",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition. Item descriptions combine official Apple Support technical specifications with Amazon UK buyer review highlights.",
+    [
+        ItemType("AIRPODS2", "Apple AirPods (2nd Generation): True wireless in-ear earbuds. H1 chip; Bluetooth; Lightning Charging Case (24+ hrs total battery, 5 hrs per charge). Double-tap gesture control. No active noise cancellation. Works with any Bluetooth device. Year introduced: 2019. Amazon UK buyer ratings: 4.1/5. Buyers report: 'great quality, use them every day'; 'good value, connects quickly'; note that these are standard earbuds without ANC."),
+        ItemType("AIRPODSPROMAX", "Apple AirPods Max: Premium over-ear wireless headphones. H1 chip per ear cup. Active Noise Cancellation (ANC), Transparency mode, Personalised Spatial Audio. Digital Crown controls. Up to 20 hrs battery (ANC on). USB-C charging. Year introduced: 2020. Amazon UK buyer ratings: 4.5/5 (1,523 ratings). Buyers report: 'superb noise cancellation — on low volume no other sound can break through'; 'fantastic headphones, quality finish'; 'comfortable, great for studying in busy places'; 'USB-C charging is convenient'; ideal for focus and commuting."),
+        ItemType("IPAD9", "Apple iPad (9th Generation): 10.2-inch Retina display (264 ppi), A13 Bionic chip, 64GB. Lightning connector. Touch ID. 8MP rear / 12MP front camera. Wi-Fi. All-day battery. STYLUS COMPATIBILITY: Supports Apple Pencil (1st generation) ONLY. NOT compatible with Apple Pencil (2nd generation) or Apple Pencil Pro. Year introduced: 2021. Amazon UK buyer ratings: 4.5/5 (4,521 ratings). Buyers report: 'nice and light and clear'; 'fast, smooth performance'; 'excellent display for reading and streaming'; 'all-day battery life'; 'good value entry-level tablet'."),
+        ItemType("IPAD12", "Apple iPad Air 11-inch (M2): 10.86-inch Liquid Retina display (264 ppi), M2 chip, 128GB. USB-C connector. Touch ID (top button). 12MP front and rear cameras. Wi-Fi 6E. All-day battery. STYLUS COMPATIBILITY: Supports Apple Pencil Pro and Apple Pencil (USB-C) ONLY. NOT compatible with Apple Pencil (1st or 2nd generation). Year introduced: 2024. Amazon UK buyer ratings: 4.7/5 (1,556 ratings). Buyers report: 'fantastic screen — vivid, bright, high definition'; 'seamless multitasking'; 'excellent for notes and annotation'; 'premium look and feel'; 'amazing alternative to the iPad Pro'."),
+        ItemType("APPLEPENCIL2", "Apple Pencil (2nd Generation): Pixel-perfect, low-latency stylus. Magnetically attaches, charges, and pairs. Double-tap to switch tools. COMPATIBLE IPADS: iPad Pro 12.9-inch (3rd–6th gen), iPad Pro 11-inch (1st–4th gen), iPad Air (4th & 5th gen), iPad mini (6th gen). NOT compatible with iPad (9th generation) or iPad Air 11-inch (M2). Year introduced: 2018. Amazon UK buyer ratings: 4.1/5. Buyers report: 'connected right away, charges well, great pencil'; 'completely changes how you use iPad'. IMPORTANT: Verify your iPad model is on the compatibility list before purchasing — pairing failures reported on incompatible models."),
+        ItemType("APPLEPENCILPRO", "Apple Pencil Pro: Advanced stylus with squeeze (tool palette), barrel roll, haptic feedback, Find My. Pixel-perfect precision, tilt/pressure sensitivity. Magnetically attaches, charges, pairs. COMPATIBLE IPADS: iPad Air 11-inch (M2/M3/M4), iPad Air 13-inch (M2/M3/M4), iPad Pro 11-inch (M4/M5), iPad Pro 13-inch (M4/M5), iPad mini (A17 Pro). NOT compatible with iPad (9th generation). Requires iPadOS 17.5+. Year introduced: 2024. Amazon UK buyer ratings: 4.6/5 (5,628 ratings). Buyers report: 'works so well and is so easy to use'; 'fast charging, lasts ages'; 'great addition to any iPad — intuitive for note-taking'; 'I use it with my Air M2 2024 and it works brilliantly'; 'completely changes how you use iPad'."),
+    ],
+    [
+        1, 1, 1, 1, 1, 1
+    ])
+
+ElectronicsMiniBasic = Scenario(
+    "ELECTRONICS-MINI",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition.",
+    [
+        ItemType("IPAD9", "Apple iPad (9th Generation): with A13 Bionic chip, 10.2-inch Retina Display, 64GB, Wi-Fi, 12MP front/8MP Back Camera, Touch ID, All-Day Battery Life – Silver."),
+        ItemType("IPAD12", "Apple iPad Air 11-inch (M2): Built for Apple Intelligence, Liquid Retina Display, 128GB, 12MP Front/Back Camera, Wi-Fi 6E, Touch ID, All-Day Battery Life — Purple."),
+        ItemType("APPLEPENCILPRO", "Apple Pencil Pro: Advanced Tools, Pixel-Perfect Precision, Tilt and Pressure Sensitivity, and Industry-Leading Low Latency for Note-Taking, Drawing, and Art. Attaches, Charges, and Pairs Magnetically."),
+    ],
+    [1, 1, 1])
+
+ElectronicsMiniSpecs = Scenario(
+    "ELECTRONICS-MINI-SPECS",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition. Item descriptions are based on official Apple Support technical specification pages.",
+    [
+        ItemType("IPAD9", "Apple iPad (9th Generation): 10.2-inch Retina display (264 ppi), A13 Bionic chip, 64GB. Lightning connector. Touch ID. 8MP rear / 12MP front camera. Wi-Fi 5, Bluetooth 4.2. All-day battery (10 hrs). STYLUS COMPATIBILITY: Supports Apple Pencil (1st generation) ONLY. NOT compatible with Apple Pencil Pro or Apple Pencil (2nd generation). Year introduced: 2021."),
+        ItemType("IPAD12", "Apple iPad Air 11-inch (M2): 10.86-inch Liquid Retina display (264 ppi), M2 chip, 8GB RAM, 128GB. USB-C connector. Touch ID (top button). 12MP front and rear cameras. Wi-Fi 6E, Bluetooth 5.3. All-day battery. Apple Intelligence capable. STYLUS COMPATIBILITY: Supports Apple Pencil Pro and Apple Pencil (USB-C) ONLY. NOT compatible with Apple Pencil (1st or 2nd generation). Year introduced: 2024."),
+        ItemType("APPLEPENCILPRO", "Apple Pencil Pro: Advanced stylus with squeeze (tool palette), barrel roll (gyroscope), haptic feedback, Find My. Pixel-perfect precision, tilt/pressure sensitivity. Magnetically attaches, charges, pairs. Requires iPadOS 17.5+. COMPATIBLE IPADS: iPad Air 11-inch (M2/M3/M4), iPad Air 13-inch (M2/M3/M4), iPad Pro 11-inch (M4/M5), iPad Pro 13-inch (M4/M5), iPad mini (A17 Pro). NOT compatible with iPad (9th generation). Year introduced: 2024."),
+    ],
+    [1, 1, 1])
+
+ElectronicsMiniPDF = Scenario(
+    "ELECTRONICS-MINI-PDF",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition. Item descriptions are drawn from official Apple Support technical specification pages and verified Amazon UK customer reviews.",
+    [
+        ItemType("IPAD9", """Apple iPad (9th Generation) — Year introduced: 2021.
+DISPLAY: 10.2-inch LED backlit IPS Retina Multi-Touch. 2160×1620 px at 264 ppi. True Tone. 500 nits. Oleophobic coating.
+CHIP: A13 Bionic with Neural Engine.
+STORAGE: 64 GB. CONNECTOR: Lightning. Headphone jack. Smart Connector.
+BIOMETRICS: Touch ID (home button). CAMERAS: 8MP rear (ƒ/2.4, 5× zoom, panorama, HDR). 12MP front Ultra Wide (ƒ/2.4, Centre Stage).
+WIRELESS: Wi-Fi 5 (802.11ac, up to 866 Mb/s). Bluetooth 4.2.
+BATTERY: 32.4 Wh, up to 10 hours web browsing or video. SIZE: 250.6×174.1×7.5 mm, 487 g.
+STYLUS COMPATIBILITY: Supports Apple Pencil (1st generation) ONLY. NOT compatible with Apple Pencil Pro or Apple Pencil (2nd generation). Apple Pencil Pro will NOT attach or pair with this iPad.
+AMAZON UK RATINGS: 4.5/5. Buyers report: 'nice and light, clear display'; 'fast, smooth performance for everyday tasks'; 'excellent for reading, streaming, light note-taking'; 'great battery life'; 'best value entry-level iPad'."""),
+        ItemType("IPAD12", """Apple iPad Air 11-inch (M2) — Year introduced: 2024.
+DISPLAY: 10.86-inch Liquid Retina LED IPS Multi-Touch. 2360×1640 px at 264 ppi. Wide colour (P3). True Tone. Anti-reflective. Fully laminated. 500 nits.
+CHIP: Apple M2 — 8-core CPU, 9-core GPU, 16-core Neural Engine, 8 GB RAM. Apple Intelligence capable.
+STORAGE: 128 GB. CONNECTOR: USB-C. Magnetic side connector for Apple Pencil.
+BIOMETRICS: Touch ID (top button). CAMERAS: 12MP Wide rear (ƒ/1.8, Focus Pixels, 4K video, Smart HDR 4). 12MP Landscape front Center Stage (ƒ/2.0).
+WIRELESS: Wi-Fi 6E (802.11ax). Bluetooth 5.3.
+BATTERY: All-day (~10 hours). SIZE: 247.6×178.5×6.1 mm, 462 g.
+STYLUS COMPATIBILITY: Supports Apple Pencil Pro and Apple Pencil (USB-C) ONLY. NOT compatible with Apple Pencil (1st or 2nd generation). Apple Pencil Pro magnetically attaches and pairs with this iPad.
+AMAZON UK RATINGS: 4.7/5 (1,556 ratings). Buyers report: 'fantastic screen — vivid, bright, high definition'; 'seamless multitasking'; 'excellent for notes and annotation with Apple Pencil Pro'; 'premium look and feel — amazing alternative to iPad Pro'."""),
+        ItemType("APPLEPENCILPRO", """Apple Pencil Pro — Year introduced: 2024.
+OVERVIEW: Most advanced Apple Pencil. Pixel-perfect precision, tilt and pressure sensitivity, industry-leading low latency.
+ADVANCED FEATURES: Squeeze — opens tool palette to switch tools, line weights, colours. Barrel roll — gyroscope allows rotation for shaped pen/brush control. Haptic feedback — pulse confirms squeeze/double-tap. Double-tap — switch between tools. Find My — locatable in Find My app. Apple Pencil hover — previews touch point before contact.
+ATTACHMENT: Magnetically attaches, pairs, and charges on the side of compatible iPad. CONNECTIVITY: Bluetooth. SYSTEM REQUIREMENT: iPadOS 17.5 or later.
+DIMENSIONS: 166 mm length, 8.9 mm diameter, 19.15 g.
+COMPATIBLE IPADS (FULL LIST): iPad Pro 13-inch (M4, M5); iPad Pro 11-inch (M4, M5); iPad Air 13-inch (M2, M3, M4); iPad Air 11-inch (M2, M3, M4); iPad mini (A17 Pro). ONLY compatible with these models.
+NOT COMPATIBLE WITH: iPad (9th generation) or any older iPad. Will not attach or pair with iPad 9th gen.
+AMAZON UK RATINGS: 4.6/5 (5,628 ratings). Buyers report: 'works so well and so easy to use'; 'fast charging, lasts ages'; 'intuitive for note-taking'; 'I use it with my Air M2 2024 and it works brilliantly'; 'completely changes how you use iPad'."""),
+    ],
+    [1, 1, 1])
+
+ElectronicsScenarioPDFFull = Scenario(
+    "ELECTRONICS-PDF",
+    "A local library is auctioning off donated electronics that are all like-new and in perfect working condition. Item descriptions are drawn from official Apple Support technical specification pages and verified Amazon UK customer reviews.",
+    [
+        ItemType("AIRPODS2", """Apple AirPods (2nd Generation) — Year introduced: 2019.
+HARDWARE: H1 headphone chip. Bluetooth 5.0. Dual beamforming microphones; dual optical sensors; motion-detecting and speech-detecting accelerometers.
+CONTROLS: Double-tap to play/pause/skip/answer calls. Hey Siri supported.
+BATTERY: Up to 5 hours listening per charge; 15 minutes in case = 3 hours listening. Over 24 hours total with Lightning Charging Case.
+CHARGING: Lightning Charging Case (or optional Wireless Charging Case, Qi-compatible).
+AUDIO: Standard in-ear earbuds. NO Active Noise Cancellation. NO Transparency mode.
+COMPATIBILITY: Works with any Bluetooth device; seamless pairing with Apple devices running latest iOS/iPadOS/watchOS/macOS/tvOS.
+DIMENSIONS: Each earbud 40.5×16.5×18 mm, 4 g. Case 53.5×44.3×21.3 mm, 38.2 g.
+AMAZON UK RATINGS: 4.1/5. Buyers report: 'great quality, use them every day'; 'good value, connects quickly to iPhone instantly'; 'solid everyday earbuds — not premium but does the job well'. Note: no noise cancellation — if ANC is required, consider AirPods Max instead."""),
+
+        ItemType("AIRPODSPROMAX", """Apple AirPods Max — Year introduced: 2020.
+HARDWARE: Apple H1 headphone chip in each ear cup (two chips total). Apple-designed 40 mm dynamic driver. 9 microphones total: 8 for Active Noise Cancellation, 3 for voice pickup.
+SENSORS: Optical sensor, position sensor, case-detect sensor, accelerometer, gyroscope (per ear cup).
+AUDIO FEATURES: Pro-Level Active Noise Cancellation (ANC); Transparency mode; Personalised Spatial Audio with dynamic head tracking; Adaptive EQ.
+CONTROLS: Digital Crown (volume, play/pause, call answer/end, skip tracks, Siri). Listening mode button (switches ANC / Transparency). Hey Siri supported.
+BATTERY: Up to 20 hours listening with ANC or Transparency mode enabled. Up to 20 hours movie playback with Spatial Audio. 5 minutes charge = ~1.5 hours listening. Ultra-low-power state in Smart Case preserves charge.
+CHARGING: USB-C (current model).
+CONNECTIVITY: Bluetooth 5.0.
+WEIGHT: 384.8 g (headphones); 134.5 g (Smart Case).
+AMAZON UK RATINGS: 4.5/5 (1,523 ratings). Buyers report: 'superb noise cancellation — on low volume no other sound can break through'; 'fantastic headphones, quality finish'; 'comfortable, great for studying in busy places'; 'USB-C charging is convenient'; 'microphone quality is great'. Best for: focus work, commuting, study environments with background noise."""),
+
+        ItemType("IPAD9", """Apple iPad (9th Generation) — Year introduced: 2021.
+DISPLAY: 10.2-inch LED backlit IPS Retina Multi-Touch display. 2160×1620 pixels at 264 ppi. True Tone. 500 nits brightness. Oleophobic coating.
+CHIP: A13 Bionic with Neural Engine.
+STORAGE: 64 GB (also available in 256 GB).
+CONNECTOR: Lightning. Also has headphone jack, Smart Connector.
+BIOMETRICS: Touch ID (home button, front face).
+CAMERAS: 8 MP Wide rear (ƒ/2.4, digital zoom 5×, panorama up to 43 MP, HDR). 12 MP Ultra Wide front (ƒ/2.4, Centre Stage, 1080p video).
+WIRELESS: Wi-Fi 5 (802.11ac, 2×2 MIMO, up to 866 Mb/s). Bluetooth 4.2.
+BATTERY: Built-in 32.4 Wh lithium-polymer. Up to 10 hours web browsing on Wi-Fi or video playback.
+SIZE/WEIGHT: 250.6×174.1×7.5 mm, 487 g (Wi-Fi model).
+STYLUS COMPATIBILITY: Supports Apple Pencil (1st generation) ONLY. NOT compatible with Apple Pencil (2nd generation) or Apple Pencil Pro. Apple Pencil 1st gen sold separately.
+AMAZON UK RATINGS: 4.5/5. Buyers report: 'nice and light, clear display'; 'fast, smooth performance for everyday tasks'; 'excellent for reading, streaming, and light note-taking'; 'great battery life'; 'best value entry-level iPad'."""),
+
+        ItemType("IPAD12", """Apple iPad Air 11-inch (M2) — Year introduced: 2024.
+DISPLAY: 10.86-inch Liquid Retina LED backlit IPS Multi-Touch display. 2360×1640 pixels at 264 ppi. Wide colour (P3). True Tone. Anti-reflective coating. Fully laminated. 500 nits brightness.
+CHIP: Apple M2 — 8-core CPU (4 performance + 4 efficiency), 9-core GPU, 16-core Neural Engine, 8 GB RAM. Hardware-accelerated H.264 and HEVC encode/decode.
+APPLE INTELLIGENCE: Yes — built-in personal intelligence system.
+STORAGE: 128 GB (also available in 256 GB, 512 GB, 1 TB).
+CONNECTOR: USB-C. Magnetic connector for Apple Pencil on side.
+BIOMETRICS: Touch ID (top button).
+CAMERAS: 12 MP Wide rear (ƒ/1.8, autofocus with Focus Pixels, 4K video, Smart HDR 4). 12 MP Landscape front Center Stage camera (ƒ/2.0, 1080p video).
+WIRELESS: Wi-Fi 6E (802.11ax). Bluetooth 5.3.
+BATTERY: All-day battery life (approximately 10 hours web browsing).
+SIZE/WEIGHT: 247.6×178.5×6.1 mm, 462 g (Wi-Fi model).
+STYLUS COMPATIBILITY: Supports Apple Pencil Pro and Apple Pencil (USB-C) ONLY. NOT compatible with Apple Pencil (1st generation) or Apple Pencil (2nd generation).
+AMAZON UK RATINGS: 4.7/5 (1,556 ratings). Buyers report: 'fantastic screen — vivid, bright, high definition'; 'seamless multitasking, apps switch almost instantly'; 'excellent for notes and annotation with Apple Pencil Pro'; 'premium look and feel — amazing alternative to iPad Pro'; 'voice input works brilliantly'."""),
+
+        ItemType("APPLEPENCIL2", """Apple Pencil (2nd Generation) — Year introduced: 2018.
+OVERVIEW: Pixel-perfect precision, industry-leading low latency stylus for drawing, sketching, colouring, note-taking, marking up PDFs.
+FEATURES: Double-tap touch surface to switch tools without setting it down. Supports Apple Pencil hover (preview where pencil will touch down — only on iPad Pro 11" 4th gen and iPad Pro 12.9" 6th gen).
+ATTACHMENT: Magnetically attaches, charges, and pairs to the side of compatible iPad.
+CONNECTIVITY: Bluetooth.
+DIMENSIONS: 166 mm length, 8.9 mm diameter, 18.2 g.
+COMPATIBLE IPADS (FULL LIST from Apple Support): iPad Pro 12.9-inch (3rd, 4th, 5th, 6th generation); iPad Pro 11-inch (1st, 2nd, 3rd, 4th generation); iPad Air (4th generation); iPad Air (5th generation); iPad mini (6th generation).
+NOT COMPATIBLE WITH: iPad (9th generation) — uses Lightning, not magnetic side connector. iPad Air 11-inch (M2/M3/M4) — requires Apple Pencil Pro or Apple Pencil (USB-C) instead.
+AMAZON UK RATINGS: 4.1/5 (71 ratings). Buyers report: 'connected right away, charges well'; 'immaculate condition, great pencil'; 'completely changes how you use iPad'. WARNING: Several buyers report pairing failures on incompatible iPad models. Verify your iPad is in the compatibility list above before purchasing."""),
+
+        ItemType("APPLEPENCILPRO", """Apple Pencil Pro — Year introduced: 2024.
+OVERVIEW: Most advanced Apple Pencil. Pixel-perfect precision, tilt and pressure sensitivity, industry-leading low latency for note-taking, drawing, and art.
+ADVANCED FEATURES: Squeeze gesture — squeeze Apple Pencil Pro to open a new tool palette (switch tools, line weights, colours instantly). Barrel roll — built-in gyroscope lets you rotate the pencil for precise control of shaped pen and brush tools. Haptic feedback — light pulse confirms squeeze or double-tap actions. Double-tap — quickly switch between tools. Find My — locate it in the Find My app if misplaced. Apple Pencil hover — preview exactly where pencil will touch down before contact.
+ATTACHMENT: Magnetically attaches, pairs, and charges on the side of compatible iPad.
+CONNECTIVITY: Bluetooth.
+SYSTEM REQUIREMENT: iPadOS 17.5 or later.
+DIMENSIONS: 166 mm length, 8.9 mm diameter, 19.15 g.
+COMPATIBLE IPADS (FULL LIST from Apple Support): iPad Pro 13-inch (M4, M5); iPad Pro 11-inch (M4, M5); iPad Air 13-inch (M2, M3, M4); iPad Air 11-inch (M2, M3, M4); iPad mini (A17 Pro).
+NOT COMPATIBLE WITH: iPad (9th generation). iPad Air (4th or 5th generation). Any older iPad Pro or iPad mini.
+AMAZON UK RATINGS: 4.6/5 (5,628 ratings). Buyers report: 'works so well and is so easy to use with almost anything'; 'fast charging, lasts ages'; 'great addition to any iPad — intuitive for note-taking'; 'I use it with my Air M2 2024 and it works brilliantly'; 'completely changes how you use iPad'. Note: expensive but widely considered worth it for iPad Air M2 and iPad Pro M4/M5 users."""),
+    ],
+    [
+        1, 1, 1, 1, 1, 1
+    ])
+
 PreservesScenario = Scenario(
     "PRESERVES",
     "Variety of gourmet preserves available at a specialty food auction.",
@@ -359,4 +519,4 @@ PreservesScenario = Scenario(
     ]
 )
 
-scenarios = [TransportationScenario, ElectronicsScenario, PreservesScenario]
+scenarios = [TransportationScenario, ElectronicsScenario, ElectronicsScenarioSpecs, ElectronicsScenarioReviews, ElectronicsScenarioPDFFull, ElectronicsMiniBasic, ElectronicsMiniSpecs, ElectronicsMiniPDF, PreservesScenario]

@@ -100,10 +100,11 @@ class CECA_XOR_Elicitation_Proxy_Factory(ProxyFactory):
 
     
 class CECA_XOR(Auction):
-    
-    def __init__(self):
+
+    def __init__(self, max_iterations: int = None):
         self.log_rows = []
-    
+        self.max_iterations = max_iterations
+
     def __call__(
         self,
         scenario: Scenario = None,
@@ -202,6 +203,9 @@ class CECA_XOR(Auction):
                 })
                 
                 if reached_CE:
+                    break
+                if self.max_iterations is not None and iteration >= self.max_iterations:
+                    print(f"Max ICA iterations ({self.max_iterations}) reached — stopping early.")
                     break
                 
         print("="*50)

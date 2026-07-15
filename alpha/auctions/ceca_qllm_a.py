@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pydantic import BaseModel, Field
 
-from alpha.util import get_openai_client, retry
+from alpha.util import get_llm_client, get_llm_model, get_llm_provider, parse_structured_output, retry
 from alpha.proxy import Proxy, ProxyFactory
 from alpha.xor import XORBid
 from alpha.auction import Auction, Allocation
@@ -80,9 +80,10 @@ class BundleValue(BaseModel):
     reasoning: str = Field(description="Reasoning as to what information we have that informs this bundles value and reasoning as to what this bundle's value is")
     value: float   = Field(description="The bundle's value")
 
+
 class CECA_QLLM_A_Proxy(Proxy):
-    def __init__(self, 
-                 person: Person, 
+    def __init__(self,
+                 person: Person,
                  check_priority,
                  target_bundle_priority,
                  happy_priority,
@@ -92,7 +93,8 @@ class CECA_QLLM_A_Proxy(Proxy):
                  discount: float = 0.75,
                  CAP_INTERACTIONS: int = 20,
                  MIN_ITERATIONS: int = 0,
-                 MAX_TRIES: int = 3):
+                 MAX_TRIES: int = 3,
+                 compress_description: bool = False):
         self.person = person
         self.manifest_valuation = XORBid()
         self.MAX_TRIES = MAX_TRIES
@@ -100,22 +102,59 @@ class CECA_QLLM_A_Proxy(Proxy):
         self.CAP_INTERACTIONS = CAP_INTERACTIONS
         self.num_questions = num_questions
         self.discount = discount
-        
+        self.compress_description = compress_description
+        self._compact_seed: str | None = None
+
         self.conversation_history = []
         self.primary_conversation_history = []
-        
+
         self.HAPPY_BUNDLE = None
         self.IS_HAPPY = False
-        
+
         self.check_priority = check_priority
         self.target_bundle_priority = target_bundle_priority
         self.happy_priority = happy_priority
         self.target_bundle_emphasis = target_bundle_emphasis
         self.anchor_num_target_bundles = anchor_num_target_bundles
-        
+
         self.current_num_iterations = 0
-        
+
         self.inferred_valuations: dict[Bundle, float] = {}
+
+    @retry()
+    def _build_compact_seed(self) -> str:
+        """One LLM call to compress the full person description into a compact WTP profile."""
+        valid_codes = self.person.scenario.codes()
+        messages = [{
+            "role": "user",
+            "content": (
+                "Summarise this person's preferences for a combinatorial auction proxy. "
+                "Max 150 words. Format exactly as:\n"
+                "Person: [role, 1 line]\n"
+                "Budget: [amount]\n"
+                "WTP: " + " | ".join(f"[{c}]=$?" for c in valid_codes) + "\n"
+                "(fill in each ? with the estimated willingness-to-pay)\n"
+                "Rules: [key synergies, bundle rejections, diminishing returns — 1-3 lines]\n\n"
+                "Full description:\n" + str(self.person.seed)
+            )
+        }]
+        client = get_llm_client()
+        response = client.chat.completions.create(
+            model=get_llm_model(), messages=messages, max_tokens=300
+        )
+        return response.choices[0].message.content.strip()
+
+    @property
+    def _seed_text(self) -> str:
+        """Return compact seed if compression enabled, otherwise full seed."""
+        if not self.compress_description:
+            return str(self.person.seed)
+        if self._compact_seed is None:
+            try:
+                self._compact_seed = self._build_compact_seed()
+            except Exception:
+                self._compact_seed = str(self.person.seed)
+        return self._compact_seed
 
     def RealPerson(self) -> Person:
         return self.person
@@ -133,6 +172,9 @@ class CECA_QLLM_A_Proxy(Proxy):
                     + "\n\n"
                     "Here is the scenario description: \n"
                     + self.person.scenario.Description()
+                    + "\n\n"
+                    "Here is the description of the person's preferences: \n"
+                    + self._seed_text
                     + "\n\n"
                     "Here is the current conversation history with the person: \n"
                     + (
@@ -155,13 +197,9 @@ class CECA_QLLM_A_Proxy(Proxy):
             }
         ]
         
-        client = get_openai_client("openai")
-        
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini", messages=messages, response_format=BundleValue
-        )
-        bundle_value = completion.choices[0].message.parsed
-        
+        client = get_llm_client()
+        bundle_value = parse_structured_output(client, get_llm_model(), messages, BundleValue)
+
         return bundle_value.value
     
     def refresh_inferred_valuations(self):
@@ -176,8 +214,9 @@ class CECA_QLLM_A_Proxy(Proxy):
             if not any(bundle == bundle2 for bundle2, _ in self.manifest_valuation.atomic_bids)
         ]
         
-        # Define the number of worker threads; adjust as needed
-        max_workers = min(10, len(bundles_to_query)) if bundles_to_query else 1
+        # Ollama processes one request at a time; parallel calls just queue up and timeout.
+        from alpha.util import get_llm_provider
+        max_workers = 1 if get_llm_provider() == "ollama" else (min(10, len(bundles_to_query)) if bundles_to_query else 1)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all value_query tasks to the executor
             future_to_bundle = {executor.submit(self.value_query, bundle): bundle for bundle in bundles_to_query}
@@ -236,30 +275,28 @@ class CECA_QLLM_A_Proxy(Proxy):
                                 else "    No records available."
                             )
                 + "\n\n"
+                    "Here is the description of the person's preferences: \n"
+                    + self._seed_text
+                    + "\n\n"
                 + 'What should the proxy ask the person next to better understand their preferences? Please make sure to get to dollar values, be strategic about what items or groups of items you ask about to maximize information. If you have a good idea of the bidders valuation in general, you can ask about specific bundles of items to better understand their preferences. Otherwise, ask a general question. Reason step by step. Give their next question -- only one -- in the following format: Question: "[question here]"'
                 )
             },
         ]
 
-        client = get_openai_client("openai")
+        client = get_llm_client()
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            logit_bias={  # remove the word budget
-                93338: -100,
-                55743: -100,
-                39770: -100,
-                9946: -100,
-                132556: -100
-            },
-        )
+        kwargs = {"model": get_llm_model(), "messages": messages}
+        if get_llm_provider() == "ollama":
+            kwargs["extra_body"] = {"think": False}
+        response = client.chat.completions.create(**kwargs)
 
-        result = response.choices[0].message.content
+        result = response.choices[0].message.content or ""
 
-        text = re.search(r'Question: "(.*)"', result).group(1)
-
-        return text
+        match = re.search(r'Question: "(.*)"', result)
+        if match:
+            return match.group(1)
+        # Fallback: return the whole response as the question if format not matched
+        return result.strip() or "What is your budget for these items?"
 
     @MessageDecorator(cache=False)
     def Message(self, message_type: str, params: any, logger=None):
@@ -316,6 +353,9 @@ class CECA_QLLM_A_Proxy(Proxy):
                             "Here is the scenario description: \n"
                             + self.person.scenario.Description()
                             + "\n\n"
+                            "Here is the description of the person's preferences: \n"
+                            + self._seed_text
+                            + "\n\n"
                             + "Here are the currently tracked bundles:\n"
                             + "\n".join([x.to_code_description() for x , _ in self.manifest_valuation.atomic_bids]) +"\n\n"
                             +"Here are the current prices: \n"
@@ -345,25 +385,44 @@ class CECA_QLLM_A_Proxy(Proxy):
                     }
                 ]
                 
-                client = get_openai_client("openai")
-                
-                completion = client.chat.completions.create(
-                    model="gpt-4o-mini", messages=messages
-                )
-                
-                messages.append(completion.choices[0].message)
-                messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
-                
-                logger.info(messages)
-                
-                client = get_openai_client("openai")
+                try:
+                    client = get_llm_client()
 
-                completion = client.beta.chat.completions.parse(
-                    model="gpt-4o-mini", messages=messages, response_format=(InformationAction if self.current_num_iterations <= self.MIN_ITERATIONS else Action)
-                )
-                action = completion.choices[0].message.parsed
-                
-                logger.info(action)
+                    if get_llm_provider() != "ollama":
+                        @retry(max_delay=60)
+                        def _thinking_call():
+                            return client.chat.completions.create(
+                                model=get_llm_model(), messages=messages
+                            )
+                        completion = _thinking_call()
+                        messages.append(completion.choices[0].message)
+                        messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
+                    else:
+                        early = self.current_num_iterations <= self.MIN_ITERATIONS
+                        messages[0]["content"] += (
+                            "\n\nYou MUST respond with TARGET_BUNDLE or CHECK — do NOT choose HAPPY yet, you have not explored enough bundles. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                            if early else
+                            "\n\nNow choose: TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                        )
+
+                    logger.info(messages)
+
+                    action = parse_structured_output(
+                        client,
+                        get_llm_model(),
+                        messages,
+                        Action,
+                    )
+
+                    logger.info(action)
+
+                    if action.response.type == "HAPPY" and self.current_num_iterations <= self.MIN_ITERATIONS:
+                        action.response = CheckPriceDemand(type="CHECK")
+                except Exception as e:
+                    logger.info(f"LLM call failed on attempt {tries}: {e}")
+                    continue
 
                 if action.response.type == "CHECK":
                     demanded_bundle: Bundle = self.person.Message(
@@ -465,7 +524,8 @@ class CECA_QLLM_A_Proxy_Factory(ProxyFactory):
                  anchor_num_target_bundles: str,
                  num_questions: int,
                  cap: int,
-                 min_iterations: int):
+                 min_iterations: int,
+                 compress_description: bool = False):
         self.check_priority = check_priority
         self.target_bundle_priority = target_bundle_priority
         self.happy_priority = happy_priority
@@ -474,7 +534,7 @@ class CECA_QLLM_A_Proxy_Factory(ProxyFactory):
         self.num_questions = num_questions
         self.cap = cap
         self.min_iterations = min_iterations
-
+        self.compress_description = compress_description
 
     def __call__(self, person: Person) -> Proxy:
         return CECA_QLLM_A_Proxy(person,
@@ -484,5 +544,6 @@ class CECA_QLLM_A_Proxy_Factory(ProxyFactory):
                                     self.target_bundle_emphasis,
                                     self.anchor_num_target_bundles,
                                     self.num_questions,
-                                    CAP_INTERACTIONS = self.cap,
-                                    MIN_ITERATIONS = self.min_iterations)
+                                    CAP_INTERACTIONS=self.cap,
+                                    MIN_ITERATIONS=self.min_iterations,
+                                    compress_description=self.compress_description)

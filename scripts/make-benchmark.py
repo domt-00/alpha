@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from alpha.scenario import scenarios
 from alpha.seed_generation.v5 import SeedGenerationPipeline_v5
 from alpha.persons.full_person import FullPerson
+from alpha.util import token_tracker
 
 
 def process_seed(scenario, benchmark, seed, setup_index):
@@ -72,6 +73,12 @@ def get_args():
         default=None,
         help="Number of people (seeds) per setup."
     )
+    parser.add_argument(
+        "--seed_steps",
+        type=int,
+        default=4,
+        help="Number of seed generation steps (1=short, 2=medium, 4=full)."
+    )
     return parser.parse_args()
 
 
@@ -90,6 +97,7 @@ def main():
         raise ValueError("No scenarios provided via --scenarios or SCENARIOS env variable.")
 
     benchmark = args.benchmark or os.getenv("BENCHMARK", "round3")
+    token_tracker.set_context(benchmark=benchmark, stage="make-benchmark")
     
     # Convert string env var to int, or fallback
     num_setups_str = args.num_setups or os.getenv("NUM_SETUPS")
@@ -116,7 +124,7 @@ def main():
             total_seeds = num_setups * num_people
 
             # Generate seeds
-            seeds = SeedGenerationPipeline_v5().generate(scenario, total_seeds)
+            seeds = SeedGenerationPipeline_v5(num_steps=args.seed_steps).generate(scenario, total_seeds)
 
             # Prepare tasks for parallel execution
             futures = []

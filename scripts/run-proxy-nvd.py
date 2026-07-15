@@ -12,7 +12,7 @@ from alpha.auctions.ceca import CECA_XOR
 from alpha.auctions.ceca_qllm_a import CECA_QLLM_A_Proxy_Factory
 from alpha.persons.full_person import FullPerson
 from alpha.scenario import scenarios
-from alpha.util import setup_logging
+from alpha.util import setup_logging, token_tracker
 
 
 def get_scenario_by_code(code):
@@ -53,7 +53,7 @@ def discover_scenarios_and_setups(benchmark):
     return tasks
 
 
-def process_scenario(benchmark, scenario_code, setup_index, proxy_factory, timestamp):
+def process_scenario(benchmark, scenario_code, setup_index, proxy_factory, timestamp, max_iterations=None):
     """
     Worker function to process a single scenario + setup combination with CECA_QLLM_A_Proxy_Factory.
 
@@ -102,7 +102,7 @@ def process_scenario(benchmark, scenario_code, setup_index, proxy_factory, times
         proxies = [proxy_factory(person) for person in persons]
 
         # Initialize and run the auction
-        auction = CECA_XOR()
+        auction = CECA_XOR(max_iterations=max_iterations)
         print(f"[INFO] Running auction for scenario={scenario_code}, setup={setup_index} with {len(persons)} persons.")
         allocation = auction(scenario=scenario_obj, agents=proxies, persons=persons)
 
@@ -141,6 +141,11 @@ def process_scenario(benchmark, scenario_code, setup_index, proxy_factory, times
         return None, None
 
 
+def _init_worker(env_path):
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=env_path, override=True)
+
+
 def main():
     setup_logging()
 
@@ -169,8 +174,15 @@ def main():
                         help="Emphasis setting for TARGET_BUNDLE in the proxy.")
     parser.add_argument("--anchor_num_target_bundles", type=str, required=True,
                         help="Number of target bundles to anchor in the proxy.")
+    parser.add_argument("--max_iterations", type=int, default=None,
+                        help="Hard cap on ICA iterations (default: no cap).")
+    parser.add_argument("--compress_description", action="store_true", default=False,
+                        help="Compress person description to compact WTP profile before each run (saves ~75%% tokens).")
+    parser.add_argument("--setup_index", type=int, default=None,
+                        help="If set, only run this setup index (0-based). Useful for single-setup runs.")
 
     args = parser.parse_args()
+    token_tracker.set_context(benchmark=args.benchmark, stage="PROXY-NVD")
 
     # Load environment variables
     load_dotenv(dotenv_path=args.env_path)
@@ -191,11 +203,15 @@ def main():
             anchor_num_target_bundles=args.anchor_num_target_bundles,
             num_questions=args.num_questions,
             cap=args.cap,
-            min_iterations=args.min_iterations
+            min_iterations=args.min_iterations,
+            compress_description=args.compress_description,
         )
 
     # Discover scenario+setup combinations
     tasks = discover_scenarios_and_setups(args.benchmark)
+    if args.setup_index is not None:
+        tasks = [(sc, si) for (sc, si) in tasks if int(si) == args.setup_index]
+        print(f"[INFO] Filtered to setup_index={args.setup_index}: {len(tasks)} task(s).")
     if not tasks:
         print("[WARN] No scenarios or setups discovered. Exiting.")
         return
@@ -206,7 +222,7 @@ def main():
     max_workers = min(12, len(tasks))
 
     # Process each scenario+setup in parallel
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers, initializer=_init_worker, initargs=(args.env_path,)) as executor:
         futures = []
         for (scenario_code, setup_index) in tasks:
             # Build the factory in the main process, pass to each worker
@@ -218,7 +234,8 @@ def main():
                     scenario_code,
                     setup_index,
                     proxy_factory,
-                    timestamp
+                    timestamp,
+                    args.max_iterations
                 )
             )
 
@@ -228,7 +245,7 @@ def main():
                 rows.append(row)
                 overall_log_df = pd.concat([overall_log_df, log_df], ignore_index=True)
 
-    # Mark the log DataFrame with identifying info
+    from alpha.util import get_llm_model, get_llm_provider
     overall_log_df["Proxy"] = "Proxy-NVD"
     overall_log_df["Proxy-check_priority"] = args.check_priority
     overall_log_df["Proxy-target_bundle_priority"] = args.target_bundle_priority
@@ -237,6 +254,9 @@ def main():
     overall_log_df["Proxy-anchor_num_target_bundles"] = args.anchor_num_target_bundles
     overall_log_df["Person"] = "FullPerson"
     overall_log_df["Timestamp"] = timestamp
+    overall_log_df["Provider"] = get_llm_provider()
+    overall_log_df["Model"] = get_llm_model()
+    overall_log_df["CompressDescription"] = args.compress_description
 
     # Create the output directory if it doesn't exist
     out_dir = f"data/{args.benchmark}-logs"

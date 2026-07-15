@@ -4,7 +4,7 @@ from typing import Union, Literal
 
 from pydantic import BaseModel, Field
 
-from alpha.util import get_openai_client
+from alpha.util import get_llm_client, get_llm_model, get_llm_provider, parse_structured_output, retry
 from alpha.proxy import Proxy, ProxyFactory
 from alpha.xor import XORBid
 from alpha.auction import Auction, Allocation
@@ -84,11 +84,13 @@ class CECA_PureLLM_G_Proxy(Proxy):
                  happy_priority,
                  target_bundle_emphasis,
                  anchor_num_target_bundles,
+                 discount: float = 0.75,
                  CAP_INTERACTIONS: int = 20,
                  MIN_ITERATIONS: int = 0,
                  MAX_TRIES: int = 3):
         self.person = person
         self.manifest_valuation = XORBid()
+        self.discount = discount
         self.MAX_TRIES = MAX_TRIES
         self.MIN_ITERATIONS = MIN_ITERATIONS
         self.CAP_INTERACTIONS = CAP_INTERACTIONS
@@ -141,6 +143,9 @@ class CECA_PureLLM_G_Proxy(Proxy):
                             "Here is the scenario description: \n"
                             + self.person.scenario.Description()
                             + "\n\n"
+                            "Here is the description of the person's preferences: \n"
+                            + str(self.person.seed)
+                            + "\n\n"
                             + "Here are the currently tracked bundles:\n"
                             + "\n".join([x.to_code_description() for x , _ in self.manifest_valuation.atomic_bids]) +"\n\n"
                             +"Here are the current prices: \n"
@@ -163,24 +168,46 @@ class CECA_PureLLM_G_Proxy(Proxy):
                     }
                 ]
                 
-                client = get_openai_client("openai")
-                
-                completion = client.chat.completions.create(
-                    model="gpt-4o-mini", messages=messages
-                )
-                
-                messages.append(completion.choices[0].message)
-                messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
-                
-                logger.info(messages)
-                
-                client = get_openai_client("openai")
+                try:
+                    client = get_llm_client()
 
-                completion = client.beta.chat.completions.parse(
-                    model="gpt-4o-mini", messages=messages, response_format=(InformationAction if self.current_num_iterations <= self.MIN_ITERATIONS else Action)
-                )
-                action = completion.choices[0].message.parsed
-                logger.info(action)
+                    # For slow local models skip the thinking call — Gemma uses the thinking
+                    # output to convince itself to say HAPPY, then fails InformationAction parse.
+                    if get_llm_provider() != "ollama":
+                        @retry(max_delay=60)
+                        def _thinking_call():
+                            return client.chat.completions.create(
+                                model=get_llm_model(), messages=messages
+                            )
+                        completion = _thinking_call()
+                        messages.append(completion.choices[0].message)
+                        messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
+                    else:
+                        early = self.current_num_iterations <= self.MIN_ITERATIONS
+                        messages[0]["content"] += (
+                            "\n\nYou MUST respond with TARGET_BUNDLE or CHECK — do NOT choose HAPPY yet, you have not explored enough bundles. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                            if early else
+                            "\n\nNow choose: TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Available items: "
+                            + self.person.scenario.simple_item_overview()
+                        )
+
+                    logger.info(messages)
+
+                    action = parse_structured_output(
+                        client,
+                        get_llm_model(),
+                        messages,
+                        Action,
+                    )
+                    logger.info(action)
+
+                    # If Gemma says HAPPY too early, treat it as a CHECK instead.
+                    if action.response.type == "HAPPY" and self.current_num_iterations <= self.MIN_ITERATIONS:
+                        action.response = CheckPriceDemand(type="CHECK")
+                except Exception as e:
+                    logger.info(f"LLM call failed on attempt {tries}: {e}")
+                    continue
 
                 if action.response.type == "CHECK":
                     demanded_bundle: Bundle = self.person.Message(
@@ -281,7 +308,8 @@ class CECA_PureLLM_G_Proxy_Factory(ProxyFactory):
                  target_bundle_emphasis: str,
                  anchor_num_target_bundles: str,
                  cap: int,
-                 min_iterations: int):
+                 min_iterations: int,
+                 discount: float = 0.75):
         self.check_priority = check_priority
         self.target_bundle_priority = target_bundle_priority
         self.happy_priority = happy_priority
@@ -289,6 +317,7 @@ class CECA_PureLLM_G_Proxy_Factory(ProxyFactory):
         self.anchor_num_target_bundles = anchor_num_target_bundles
         self.cap = cap
         self.min_iterations = min_iterations
+        self.discount = discount
 
 
     def __call__(self, person: Person) -> Proxy:
@@ -298,5 +327,6 @@ class CECA_PureLLM_G_Proxy_Factory(ProxyFactory):
                                     self.happy_priority,
                                     self.target_bundle_emphasis,
                                     self.anchor_num_target_bundles,
-                                    CAP_INTERACTIONS = self.cap,
-                                    MIN_ITERATIONS = self.min_iterations)
+                                    discount=self.discount,
+                                    CAP_INTERACTIONS=self.cap,
+                                    MIN_ITERATIONS=self.min_iterations)

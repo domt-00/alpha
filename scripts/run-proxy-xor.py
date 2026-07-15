@@ -8,7 +8,7 @@ import concurrent.futures
 from alpha.auctions.ceca import CECA_XOR, CECA_XOR_Elicitation_Proxy_Factory
 from alpha.persons.full_person import FullPerson
 from alpha.scenario import scenarios
-from alpha.util import setup_logging
+from alpha.util import setup_logging, token_tracker
 
 def get_scenario_by_code(code):
     """Return the scenario object (from alpha.scenario) matching the given code."""
@@ -135,6 +135,11 @@ def discover_scenarios_and_setups(benchmark):
     return tasks
 
 
+def _init_worker(env_path):
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=env_path, override=True)
+
+
 def main():
     setup_logging()
 
@@ -142,6 +147,7 @@ def main():
     parser.add_argument("--env_path", type=str, default=".env", help="Path to the .env file to load environment variables from.")
     parser.add_argument("--benchmark", type=str, required=True, help="Name of the benchmark (e.g. 'round3').")
     args = parser.parse_args()
+    token_tracker.set_context(benchmark=args.benchmark, stage="PROXY-XOR")
 
     # Load environment variables
     load_dotenv(dotenv_path=args.env_path)
@@ -167,7 +173,7 @@ def main():
     max_workers = min(12, len(tasks))
 
     # Process each scenario+setup in parallel
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers, initializer=_init_worker, initargs=(args.env_path,)) as executor:
         futures = [
             executor.submit(process_scenario, args.benchmark, scenario_code, setup_index, proxy_factory, timestamp)
             for (scenario_code, setup_index) in tasks
@@ -181,6 +187,8 @@ def main():
     # Add additional columns to the log DataFrame
     overall_log_df["Proxy"] = "Proxy-XOR"
     overall_log_df["Timestamp"] = timestamp
+    overall_log_df["Provider"] = "deterministic"
+    overall_log_df["Model"] = "xor"
 
     # Save the logs and results to CSV files
     log_filename = f"data/{args.benchmark}-logs/log_Proxy-XOR_{timestamp}.csv"

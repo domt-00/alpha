@@ -2,17 +2,50 @@ import json
 import random
 import re
 
-from censusname import generate
-from alpha.util import get_openai_client, retry
+from pydantic import BaseModel
+
+from alpha.util import get_llm_client, get_llm_model, parse_structured_output, retry
+
+# Replacement for the broken censusname package (incompatible with Python 3.13)
+_FIRST = ["Alice", "Bob", "Charlie", "Diana", "Edward", "Fiona", "George",
+          "Hannah", "Ivan", "Julia", "Kevin", "Laura", "Marcus", "Nina",
+          "Oscar", "Paula", "Quinn", "Rachel", "Samuel", "Tara"]
+_LAST  = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia",
+          "Miller", "Davis", "Wilson", "Moore", "Taylor", "Anderson",
+          "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson"]
+
+def generate() -> str:
+    return f"{random.choice(_FIRST)} {random.choice(_LAST)}"
+
 from alpha.person import SeedGenerationPipeline, Seed
 
 
+# ── Pydantic models for JSON-mode structured outputs ──────────────────────────
+
+class BidderEntry(BaseModel):
+    example_number: int
+    name: str
+    description_of_preferences: str
+
+class BiddersResponse(BaseModel):
+    bidders: list[BidderEntry]
+
+class RevisedPreferences(BaseModel):
+    wtp: str
+    full_revised_preferences: str
+
+
+# ── Pipeline steps ─────────────────────────────────────────────────────────────
+
 @retry()
 def get_bids(scenario):
-    client = get_openai_client("openai")
-    
+    client = get_llm_client()
+    model  = get_llm_model()
+
+    names = ", ".join([generate() for _ in range(3)])
+
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON."},
         {
             "role": "user",
             "content": (
@@ -21,78 +54,26 @@ def get_bids(scenario):
                 + "\n\nPlease help me come up with different people and different preferences for this auction. "
                   "Think through the specific purchase occasion and taste preferences for the occasion. "
                   "Write in present tense. Write a paragraph for each. Please give me three different people named: "
-                + ", ".join([generate() for _ in range(3)])
-                + "."
+                + names
+                + ".\n\n"
+                  "Respond ONLY with a JSON object matching this schema:\n"
+                  '{"bidders": [{"example_number": <int>, "name": "<str>", "description_of_preferences": "<str>"}, ...]}'
             ),
         },
     ]
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "submit_response",
-                "description": "Submit the response to the user's request. Please include multiple bidders as requested.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "number_of_bidders": {
-                            "type": "integer",
-                            "description": "The number of bidders to include in the response.",
-                        },
-                        "bidders": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "example_number": {
-                                        "type": "integer",
-                                        "description": "The number of the example.",
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "description": "The name of a bidder.",
-                                    },
-                                    "description_of_preferences": {
-                                        "type": "string",
-                                        "description": "Here is the ideal customer profile's wishes for the current auction and other relevant information.",
-                                    },
-                                },
-                                "required": [
-                                    "example_number",
-                                    "name",
-                                    "description_of_preferences",
-                                ],
-                            },
-                        },
-                    },
-                    "required": ["bidders"],
-                },
-            },
-        }
-    ]
-
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        tools=tools,
-        tool_choice="required",
-        max_tokens=10000,
-    )
-
-    result = json.loads(completion.choices[0].message.tool_calls[0].function.arguments)["bidders"]
-
-    entry = random.choice(result)
-
-    return entry["description_of_preferences"], entry["name"]
+    result = parse_structured_output(client, model, messages, BiddersResponse)
+    entry = random.choice(result.bidders)
+    return entry.description_of_preferences, entry.name
 
 
 @retry()
 def revise_pref(pref, scenario):
-    client = get_openai_client("openai")
-    
+    client = get_llm_client()
+    model  = get_llm_model()
+
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON."},
         {
             "role": "user",
             "content": (
@@ -103,60 +84,21 @@ def revise_pref(pref, scenario):
                 + "\n\nPlease help me identify discrepancies and areas lacking clarity. "
                   "Please also help identify opportunities to clarify the person's willingness to pay and how much "
                   "and what combinations of items they would want, e.g., one or another, one and/or another, one and another. "
-                  "Then revise the description for this bidder so that they are more precise and accurate."
+                  "Then revise the description for this bidder so that they are more precise and accurate.\n\n"
+                  "Respond ONLY with a JSON object matching this schema:\n"
+                  '{"wtp": "<background and WTP info>", "full_revised_preferences": "<revised description>"}'
             ),
         },
     ]
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "submit_response",
-                "description": "Submit the response to the user's request. Please include multiple bidders as requested.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "wtp": {
-                            "type": "string",
-                            "description": "The person's background (career, family, etc.) and how it relates to their willingness to pay.",
-                        },
-                        "lacking_clarity_if_any": {
-                            "type": "string",
-                            "description": "Any areas lacking clarity in the description and the bidder string.",
-                        },
-                        "combination_info": {
-                            "type": "string",
-                            "description": "Any opportunities to clarify the person's willingness to pay and how much and what combinations of items they would want, e.g., one or another, one and/or another, one and another.",
-                        },
-                        "full_revised_preferences": {
-                            "type": "string",
-                            "description": "Here is the ideal customer profile's wishes for the current auction and other relevant information.",
-                        },
-                    },
-                    "required": ["wtp", "full_revised_preferences"],
-                },
-            },
-        }
-    ]
-
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        tools=tools,
-        tool_choice="required",
-        max_tokens=10000,
-    )
-
-    result = json.loads(completion.choices[0].message.tool_calls[0].function.arguments)
-
-    return result["full_revised_preferences"]
+    result = parse_structured_output(client, model, messages, RevisedPreferences)
+    return result.full_revised_preferences
 
 
 @retry()
 def elaborate_bid(bid, scenario):
-    client = get_openai_client("openai")
-    
+    client = get_llm_client()
+
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {
@@ -177,34 +119,28 @@ def elaborate_bid(bid, scenario):
     ]
 
     completion = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=get_llm_model(),
         messages=messages,
-        max_tokens=10000,
-        logit_bias={  # remove the word budget
-            93338: -100,
-            55743: -100,
-            39770: -100,
-            9946: -100,
-            132556: -100
-        },
+        max_tokens=1500,
     )
 
     result = completion.choices[0].message.content
 
     # Extract the content within the triple backticks
-    result = re.search(r"```([^`]*)```", result).group(1)
-
-    return result
+    match = re.search(r"```([^`]*)```", result)
+    if match:
+        return match.group(1)
+    return result  # fall back to full response if no backtick block found
 
 
 @retry()
 def refine_bid(elaborated_bid, scenario):
     """
-    This function further refines the bidder's preferences by making them more precise,
+    Further refines the bidder's preferences by making them more precise,
     especially in evaluating complex bundles with multiple items.
     """
-    client = get_openai_client("openai")
-    
+    client = get_llm_client()
+
     messages = [
         {"role": "system", "content": "You are a meticulous assistant focused on precision."},
         {
@@ -213,40 +149,50 @@ def refine_bid(elaborated_bid, scenario):
                 "Based on the following elaborated bidder preference description for an auction:\n\n"
                 + elaborated_bid
                 + "\n\n"
-                "Please write a short statement on the process by the bidder evaluates complex bundles with many different items that will go at the end of the elaborated bidder preference description. Does the bidder view large bundles as additive in terms of their constituents? Does the bidder view large bundles as a necessity, e.g. they would be averse to accepting the constituents individually? Does the bidder value multiples of similar items additively or at a discounted rate and if so, how strong is the discount? Quantify how strongly these considerations matter in terms of percentage discounts, value of complementary, substitution, bulk effects."
+                "Please write a short statement on the process by which the bidder evaluates complex bundles with many different items that will go at the end of the elaborated bidder preference description. "
+                "Does the bidder view large bundles as additive in terms of their constituents? "
+                "Does the bidder view large bundles as a necessity, e.g. they would be averse to accepting the constituents individually? "
+                "Does the bidder value multiples of similar items additively or at a discounted rate and if so, how strong is the discount? "
+                "Quantify how strongly these considerations matter in terms of percentage discounts, value of complementary, substitution, bulk effects. "
                 "Ensure that the evaluation process is clearly detailed and leaves no ambiguity about the bidder's decision-making."
             ),
         },
     ]
 
     completion = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=get_llm_model(),
         messages=messages,
-        max_tokens=10000,
+        max_tokens=1500,
     )
 
     refined_result = completion.choices[0].message.content
-
     return elaborated_bid + refined_result
 
 
 class SeedGenerationPipeline_v5(SeedGenerationPipeline):
-    
-    def __call__(cls, scenario):
+
+    def __init__(self, num_steps=4):
+        self.num_steps = num_steps
+
+    def __call__(self, scenario):
         # Step 1: Generate initial bidder preferences
         pref, name = get_bids(scenario)
-        
+        bid = pref
+
         # Step 2: Revise the preferences for clarity and accuracy
-        bid = revise_pref(pref, scenario)
-        
+        if self.num_steps >= 2:
+            bid = revise_pref(pref, scenario)
+
         # Step 3: Elaborate the bid with specific dollar values and bundle details
-        bid = elaborate_bid(bid, scenario)
-        
+        if self.num_steps >= 3:
+            bid = elaborate_bid(bid, scenario)
+
         # Step 4: Further refine the bid for precision in evaluating complex bundles
-        bid = refine_bid(bid, scenario)
-        
+        if self.num_steps >= 4:
+            bid = refine_bid(bid, scenario)
+
         return Seed(
-            code=name.lower().replace(" ", ""), 
-            scenario=scenario.code, 
+            code=name.lower().replace(" ", ""),
+            scenario=scenario.code,
             description=bid
         )

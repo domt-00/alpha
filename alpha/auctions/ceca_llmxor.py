@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pydantic import BaseModel, Field
 
-from alpha.util import get_openai_client, retry
+from alpha.util import get_llm_client, get_llm_model, parse_structured_output, retry
 from alpha.proxy import Proxy, ProxyFactory
 from alpha.xor import XORBid
 from alpha.auction import Auction, Allocation
@@ -165,14 +165,10 @@ class CECA_HybridXOR_Proxy(Proxy):
                 )
             }
         ]
-        
-        client = get_openai_client("openai")
-        
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini", messages=messages, response_format=BundleValue
-        )
-        bundle_value = completion.choices[0].message.parsed
-        
+
+        client = get_llm_client()
+        bundle_value = parse_structured_output(client, get_llm_model(), messages, BundleValue)
+
         return bundle_value.value
     
     def refresh_inferred_valuations(self):
@@ -188,7 +184,7 @@ class CECA_HybridXOR_Proxy(Proxy):
         ]
         
         # Define the number of worker threads; adjust as needed
-        max_workers = min(10, len(bundles_to_query)) if bundles_to_query else 1
+        max_workers = min(3, len(bundles_to_query)) if bundles_to_query else 1
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all value_query tasks to the executor
             future_to_bundle = {executor.submit(self.value_query, bundle): bundle for bundle in bundles_to_query}
@@ -207,11 +203,13 @@ class CECA_HybridXOR_Proxy(Proxy):
         self.inferred_valuations = new_inferred_valuations
                
     def get_bid(self):
-        
-        if (self.current_num_iterations < 4) or (self.current_num_iterations < 24  and self.current_num_iterations % 3 == 0) or not hasattr(self, "inferred_valuations"):
+
+        if not hasattr(self, "inferred_valuations"):
             self.refresh_inferred_valuations()
-            
-        if self.current_num_iterations > 24:
+        elif self.current_num_iterations < self.SWITCH:
+            if (self.current_num_iterations < 4) or (self.current_num_iterations % 3 == 0):
+                self.refresh_inferred_valuations()
+        else:
             for k, v in self.inferred_valuations.items():
                 self.inferred_valuations[k] = v * self.decay
         
@@ -256,18 +254,11 @@ class CECA_HybridXOR_Proxy(Proxy):
             },
         ]
         
-        client = get_openai_client("openai")
+        client = get_llm_client()
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_llm_model(),
             messages=messages,
-            logit_bias={  # remove the word budget
-                93338: -100,
-                55743: -100,
-                39770: -100,
-                9946: -100,
-                132556: -100
-            },
         )
 
         result = response.choices[0].message.content
@@ -282,13 +273,10 @@ class CECA_HybridXOR_Proxy(Proxy):
         if message_type == "ceca_xor_step":
             
             self.current_num_iterations += 1
-            
-            if self.current_num_iterations > 128:
+
+            if (self.IS_HAPPY and self.HAPPY_BUNDLE == params["bundle"]) or self.current_num_iterations > self.CAP_INTERACTIONS:
                 return 1, self.get_bid()
-            # if (self.IS_HAPPY and self.HAPPY_BUNDLE == params["bundle"]) or self.current_num_iterations > self.CAP_INTERACTIONS:
-            #     print("is happy", self.IS_HAPPY, self.HAPPY_BUNDLE == params["bundle"] , self.current_num_iterations > self.CAP_INTERACTIONS)
-            #     return 1, self.get_bid()
-            
+
             if self.current_num_iterations <= 1:
                 # first iteration is just ask question
                 question = self.get_next_question()
@@ -360,23 +348,23 @@ class CECA_HybridXOR_Proxy(Proxy):
                         }
                     ]
                     
-                    client = get_openai_client("openai")
+                    client = get_llm_client()
 
                     completion = client.chat.completions.create(
-                        model="gpt-4o-mini", messages=messages
+                        model=get_llm_model(), messages=messages
                     )
 
                     messages.append(completion.choices[0].message)
                     messages.append({"role": "user", "content": "Now format to give the appropriate action of either TARGET_BUNDLE, CHECK, or HAPPY. Do not target a bundle already targetted. Here are the items and their quantities available. Do not give a bundle exceeding the available quantities " + self.person.scenario.simple_item_overview()})
 
                     logger.info(messages)
-                    
-                    client = get_openai_client("openai")
 
-                    completion = client.beta.chat.completions.parse(
-                        model="gpt-4o-mini", messages=messages, response_format=(InformationAction if self.current_num_iterations <= self.MIN_ITERATIONS else Action)
+                    action = parse_structured_output(
+                        client,
+                        get_llm_model(),
+                        messages,
+                        InformationAction if self.current_num_iterations <= self.MIN_ITERATIONS else Action,
                     )
-                    action = completion.choices[0].message.parsed
 
                     logger.info(action)
 

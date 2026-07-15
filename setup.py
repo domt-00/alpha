@@ -9,7 +9,7 @@ setup(
     install_requires=[
         'censusname',
         'matplotlib',
-        'openai',
+        'openai',        # used as OpenAI-compatible client for Groq / Mistral
         'ortools',
         'pandas',
         'plotnine',
@@ -18,7 +18,6 @@ setup(
         'python-dotenv',
         'setuptools',
         'tqdm',
-        'google-auth',
         'requests'
     ],              # List of dependencies
     classifiers=[
